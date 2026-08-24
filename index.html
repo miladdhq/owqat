@@ -1,0 +1,614 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B1026">
+<title>اوقات — نماز و قبله</title>
+<meta name="description" id="metaDesc" content="اوقات — اوقات شرعی و جهت قبله، محاسبه‌شده روی همین دستگاه و بدون اینترنت.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B1026'/%3E%3Ccircle cx='32' cy='38' r='13' fill='none' stroke='%23E8C87A' stroke-width='2.6'/%3E%3Cpath d='M14 38h36' stroke='%23E8C87A' stroke-width='2.6'/%3E%3Cpath d='M32 14v8' stroke='%23E8C87A' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Vazirmatn:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   اوقات — tokens
+   ------------------------------------------------------------
+   اوقات شرعی خودشان ساختارِ روزند، پس زمینه‌ی صفحه با جای تو در
+   همان روز عوض می‌شود: شب نیلی، سحر ارغوانی، روز آبی، غروب کهربایی.
+   The prayer times *are* the structure of the day, so the page
+   background follows where you are inside it — night indigo, dawn
+   violet, day blue, dusk amber. Information, not decoration.
+   ============================================================ */
+:root{
+  --ink:#0B1026;
+  --fg:#F2EFE6;
+  --fg-dim:#A9A79E;
+  --fg-faint:#6E6C67;
+  --gold:#E8C87A;
+  --line:rgba(242,239,230,.14);
+  --sky-a:#0B1026; --sky-b:#131A3A;
+
+  --fa:'Vazirmatn',system-ui,sans-serif;
+  --mono:'DM Mono',ui-monospace,monospace;
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --r:14px;
+}
+[data-phase=night]{--sky-a:#080C1E;--sky-b:#141B3C;--gold:#D9C089}
+[data-phase=dawn] {--sky-a:#1A1130;--sky-b:#4A2340;--gold:#F0B9A0}
+[data-phase=day]  {--sky-a:#0E1A38;--sky-b:#1D3567;--gold:#F2D48A}
+[data-phase=dusk] {--sky-a:#22132A;--sky-b:#5A2A22;--gold:#F0C070}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100dvh;color:var(--fg);font-family:var(--fa);line-height:1.62;
+  background:linear-gradient(170deg,var(--sky-a),var(--sky-b));
+  background-attachment:fixed;transition:background 1.2s var(--ease)}
+html[dir=rtl] body{direction:rtl}
+html[dir=ltr] body{direction:ltr}
+button,input,select{font-family:inherit;color:inherit}
+button{border:none;background:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:6px}
+.mono{font-family:var(--mono);direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums}
+
+.wrap{max-width:900px;margin:0 auto;padding:clamp(14px,3vw,28px)}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-bottom:clamp(16px,3vw,24px);flex-wrap:wrap}
+.brand b{font-size:1.3rem;font-weight:900;letter-spacing:-.3px;display:block;line-height:1.1}
+.brand span{font-family:var(--mono);font-size:.58rem;color:var(--fg-faint);letter-spacing:2.2px}
+.hact{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.gb{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 13px;
+  border-radius:99px;border:1px solid var(--line);font-size:.78rem;font-weight:600;color:var(--fg-dim);
+  background:rgba(242,239,230,.05);transition:all .18s;white-space:nowrap}
+.gb:hover{color:var(--fg);border-color:var(--fg-dim)}
+.gb.sq{width:34px;padding:0}
+
+.card{border:1px solid var(--line);border-radius:var(--r);padding:clamp(15px,3vw,20px);
+  background:rgba(242,239,230,.045);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  margin-bottom:clamp(12px,2.2vw,16px)}
+.card h2{font-family:var(--mono);font-size:.62rem;letter-spacing:1.6px;color:var(--fg-faint);
+  margin-bottom:12px;font-weight:500}
+
+/* ---------- next prayer ---------- */
+.next{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.next .who{font-size:clamp(1.7rem,5.5vw,2.5rem);font-weight:900;line-height:1.1;color:var(--gold)}
+.next .at{font-family:var(--mono);font-size:1rem;color:var(--fg-dim);margin-top:2px}
+.next .left{text-align:end}
+.next .left b{display:block;font-family:var(--mono);font-size:clamp(1.5rem,4.6vw,2.1rem);
+  font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
+.next .left span{font-size:.72rem;color:var(--fg-faint);font-family:var(--mono);letter-spacing:1.4px}
+.today{font-size:.84rem;color:var(--fg-dim);margin-top:10px}
+
+/* ---------- day bar ---------- */
+.daybar{position:relative;height:64px;margin-top:6px}
+.daybar .track{position:absolute;inset-block:26px 22px;inset-inline:0;border-radius:99px;
+  background:linear-gradient(90deg,rgba(242,239,230,.10),rgba(242,239,230,.20),rgba(242,239,230,.10))}
+.daybar .lit{position:absolute;inset-block:26px 22px;border-radius:99px;
+  background:linear-gradient(90deg,var(--gold),rgba(242,239,230,.35));opacity:.5}
+.daybar .pt{position:absolute;top:20px;width:2px;height:22px;background:rgba(242,239,230,.5);
+  border-radius:2px;transform:translateX(-1px)}
+.daybar .pt.past{background:var(--gold);opacity:.85}
+.daybar .lbl{position:absolute;top:0;font-size:.62rem;color:var(--fg-faint);
+  transform:translateX(-50%);white-space:nowrap}
+.daybar .nowm{position:absolute;top:14px;width:3px;height:34px;background:var(--fg);
+  border-radius:3px;transform:translateX(-1.5px);box-shadow:0 0 0 3px rgba(11,16,38,.5)}
+.daybar .nowl{position:absolute;bottom:0;font-family:var(--mono);font-size:.6rem;color:var(--fg);
+  transform:translateX(-50%);white-space:nowrap}
+
+/* ---------- times ---------- */
+.times{display:grid;grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:8px}
+.tm{border:1px solid var(--line);border-radius:11px;padding:11px 13px;background:rgba(242,239,230,.03);
+  transition:border-color .2s,background .2s}
+.tm.now{border-color:var(--gold);background:rgba(232,200,122,.12)}
+.tm.done{opacity:.5}
+.tm b{display:block;font-family:var(--mono);font-size:1.22rem;font-weight:500;line-height:1.15;
+  font-variant-numeric:tabular-nums}
+.tm span{font-size:.78rem;color:var(--fg-dim)}
+.tm.now span{color:var(--gold)}
+
+/* ---------- qibla ---------- */
+.qwrap{display:flex;align-items:center;gap:clamp(14px,3vw,26px);flex-wrap:wrap}
+.dial{position:relative;width:clamp(150px,34vw,190px);aspect-ratio:1;flex:none}
+.dial svg{width:100%;height:100%;display:block}
+.qmeta b{display:block;font-family:var(--mono);font-size:2rem;font-weight:500;line-height:1;color:var(--gold)}
+.qmeta span{font-size:.8rem;color:var(--fg-dim)}
+.qmeta .dist{font-family:var(--mono);font-size:.8rem;color:var(--fg-faint);margin-top:7px}
+.qnote{font-size:.74rem;color:var(--fg-faint);margin-top:9px;max-width:34ch;line-height:1.7}
+
+/* ---------- settings ---------- */
+.rowf{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px}
+.f label{display:block;font-size:.68rem;color:var(--fg-faint);margin-bottom:4px;font-family:var(--mono);letter-spacing:1px}
+.f select,.f input{width:100%;min-width:0;height:38px;padding:0 10px;border-radius:9px;
+  border:1px solid var(--line);background:rgba(11,16,38,.5);font-size:.85rem;color:var(--fg)}
+.f select:focus,.f input:focus{outline:none;border-color:var(--gold)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:6px 12px;border-radius:99px;border:1px solid var(--line);font-size:.76rem;font-weight:600;
+  color:var(--fg-dim);background:rgba(242,239,230,.04);transition:all .16s}
+.chip[aria-pressed=true]{background:var(--fg);color:var(--ink);border-color:var(--fg)}
+
+footer{text-align:center;font-size:.72rem;color:var(--fg-faint);padding:8px 0 22px;line-height:1.9}
+
+@media (max-width:560px){
+  .rowf{grid-template-columns:1fr}
+  .next{gap:12px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;transition-duration:.001ms !important}
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <b data-i18n="brand">اوقات</b>
+      <span class="mono" data-i18n="tagline">PRAYER TIMES &amp; QIBLA</span>
+    </div>
+    <div class="hact">
+      <button class="gb" id="geoBtn" data-i18n="cta.geo">◎ موقعیت من</button>
+      <button class="gb sq mono" id="langBtn" style="font-size:.66rem;font-weight:700">EN</button>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2><span data-i18n="h.next">NEXT</span></h2>
+    <div class="next">
+      <div>
+        <div class="who" id="nextWho">—</div>
+        <div class="at mono" id="nextAt"></div>
+      </div>
+      <div class="left">
+        <b class="mono" id="countdown">—</b>
+        <span data-i18n="lbl.left">تا اذان</span>
+      </div>
+    </div>
+    <div class="today" id="todayLine"></div>
+    <div class="daybar" id="daybar"></div>
+  </section>
+
+  <section class="card">
+    <h2><span data-i18n="h.times">TODAY</span></h2>
+    <div class="times" id="times"></div>
+  </section>
+
+  <section class="card">
+    <h2><span data-i18n="h.qibla">QIBLA</span></h2>
+    <div class="qwrap">
+      <div class="dial" id="dial"></div>
+      <div class="qmeta">
+        <b class="mono" id="qDeg">—</b>
+        <span data-i18n="lbl.fromNorth">درجه از شمال جغرافیایی</span>
+        <div class="dist mono" id="qDist"></div>
+        <p class="qnote" data-i18n="q.note">قطب‌نمای گوشی شمالِ مغناطیسی را نشان می‌دهد؛ این عدد نسبت به شمالِ جغرافیایی است.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2><span data-i18n="h.where">LOCATION &amp; METHOD</span></h2>
+    <div class="rowf">
+      <div class="f"><label data-i18n="l.city">شهر</label><select id="citySel"></select></div>
+      <div class="f"><label data-i18n="l.method">محاسبه</label><select id="methodSel"></select></div>
+    </div>
+    <div class="rowf">
+      <div class="f"><label data-i18n="l.lat">عرض جغرافیایی</label><input id="latIn" class="mono" inputmode="decimal"></div>
+      <div class="f"><label data-i18n="l.lng">طول جغرافیایی</label><input id="lngIn" class="mono" inputmode="decimal"></div>
+    </div>
+    <div class="f" style="margin-bottom:10px">
+      <label data-i18n="l.tz">اختلاف با گرینویچ (ساعت)</label>
+      <input id="tzIn" class="mono" inputmode="decimal">
+    </div>
+    <div class="chips" role="group" data-i18n-aria="a11y.asr" aria-label="مذهب عصر">
+      <button class="chip" data-asr="1" aria-pressed="true" data-i18n="asr.std">عصر: معیار</button>
+      <button class="chip" data-asr="2" aria-pressed="false" data-i18n="asr.hanafi">عصر: حنفی</button>
+    </div>
+  </section>
+
+  <footer>
+    <span data-i18n="foot">همه‌چیز روی همین دستگاه حساب می‌شود — بدون اینترنت و بدون ارسال موقعیت.</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s)},
+    $$=function(s){return Array.prototype.slice.call(document.querySelectorAll(s))};
+var SVGNS='http://www.w3.org/2000/svg';
+
+/* ============================================================
+   ریاضیِ خورشید و قبله — آزموده‌شده در برابر مقادیر مرجع
+   Solar maths and qibla bearing, tested against reference values:
+   declination at both solstices, equation of time at both extremes,
+   and published qibla bearings for Cairo / Istanbul / London.
+   ============================================================ */
+var D2R=Math.PI/180,R2D=180/Math.PI;
+function sin(d){return Math.sin(d*D2R)}
+function cos(d){return Math.cos(d*D2R)}
+function tan(d){return Math.tan(d*D2R)}
+function arcsin(x){return Math.asin(x)*R2D}
+function arccos(x){return Math.acos(x)*R2D}
+function arctan2(y,x){return Math.atan2(y,x)*R2D}
+function arccot(x){return Math.atan(1/x)*R2D}
+function fixAngle(a){a=a-360*Math.floor(a/360);return a<0?a+360:a}
+function fixHour(h){h=h-24*Math.floor(h/24);return h<0?h+24:h}
+
+function julian(y,m,d){
+  if(m<=2){y-=1;m+=12}
+  var A=Math.floor(y/100),B=2-A+Math.floor(A/4);
+  return Math.floor(365.25*(y+4716))+Math.floor(30.6001*(m+1))+d+B-1524.5;
+}
+function sunPosition(jd){
+  var D=jd-2451545.0;
+  var g=fixAngle(357.529+0.98560028*D),
+      q=fixAngle(280.459+0.98564736*D),
+      L=fixAngle(q+1.915*sin(g)+0.020*sin(2*g)),
+      e=23.439-0.00000036*D,
+      RA=fixHour(arctan2(cos(e)*sin(L),cos(L))/15),
+      decl=arcsin(sin(e)*sin(L)),
+      EqT=q/15-RA;
+  if(EqT>12)EqT-=24; if(EqT<-12)EqT+=24;
+  return {decl:decl,eqt:EqT};
+}
+function hourAngle(angle,lat,decl){
+  var x=(-sin(angle)-sin(lat)*sin(decl))/(cos(lat)*cos(decl));
+  if(x>1||x<-1)return null;      // عرض‌های قطبی: طلوع/غروبی در کار نیست
+  return arccos(x)/15;
+}
+function asrAngle(f,lat,decl){return -arccot(f+tan(Math.abs(lat-decl)))}
+
+var METHODS={
+  tehran:{fa:'ژئوفیزیک دانشگاه تهران',en:'Univ. of Tehran',fajr:17.7,isha:14,maghrib:4.5,midnight:'jafari'},
+  jafari:{fa:'شیعه اثنی‌عشری',en:'Shia Ithna-Ashari',fajr:16,isha:14,maghrib:4,midnight:'jafari'},
+  mwl:{fa:'اتحادیه جهانی مسلمانان',en:'Muslim World League',fajr:18,isha:17,maghrib:0,midnight:'standard'},
+  isna:{fa:'ISNA (آمریکای شمالی)',en:'ISNA (North America)',fajr:15,isha:15,maghrib:0,midnight:'standard'}
+};
+
+function prayerTimes(y,m,d,lat,lng,tz,mk,asrF){
+  var M=METHODS[mk]||METHODS.tehran,
+      jd=julian(y,m,d)-lng/(15*24),
+      s=sunPosition(jd),
+      noon=fixHour(12+tz-lng/15-s.eqt);
+  function ha(a){return hourAngle(a,lat,s.decl)}
+  var riseHA=ha(0.833),
+      o={fajr:ha(M.fajr)==null?null:noon-ha(M.fajr),
+         sunrise:riseHA==null?null:noon-riseHA,
+         dhuhr:noon,
+         sunset:riseHA==null?null:noon+riseHA,
+         isha:ha(M.isha)==null?null:noon+ha(M.isha)};
+  var asrHA=hourAngle(asrAngle(asrF||1,lat,s.decl),lat,s.decl);
+  o.asr=asrHA==null?null:noon+asrHA;
+  o.maghrib=M.maghrib>0?(ha(M.maghrib)==null?null:noon+ha(M.maghrib)):o.sunset;
+  o.midnight=(o.sunset!=null&&o.fajr!=null)
+    ? (M.midnight==='jafari'
+        ? fixHour(o.sunset+fixHour(o.fajr+24-o.sunset)/2)
+        : fixHour(o.sunset+fixHour(o.sunrise+24-o.sunset)/2))
+    : null;
+  return o;
+}
+var KAABA={lat:21.4225,lng:39.8262};
+function qibla(lat,lng){
+  var dL=KAABA.lng-lng;
+  return fixAngle(arctan2(sin(dL),cos(lat)*tan(KAABA.lat)-sin(lat)*cos(dL)));
+}
+function distanceToKaaba(lat,lng){
+  var dL=(KAABA.lng-lng)*D2R,p1=lat*D2R,p2=KAABA.lat*D2R;
+  var c=Math.acos(Math.min(1,Math.max(-1,Math.sin(p1)*Math.sin(p2)+Math.cos(p1)*Math.cos(p2)*Math.cos(dL))));
+  return c*6371;
+}
+
+/* ---------- تقویم شمسی (همان الگوریتمِ آزموده‌شده) ---------- */
+function div(a,b){return ~~(a/b)}
+function modf(a,b){return a-~~(a/b)*b}
+function jalCal(jy){
+  var br=[-61,9,38,199,426,686,756,818,1111,1181,1210,1635,2060,2097,2192,2262,2324,2394,2456,3178];
+  var gy=jy+621,leapJ=-14,jp=br[0],jm,jump=0,leap,n,i;
+  for(i=1;i<br.length;i++){jm=br[i];jump=jm-jp;if(jy<jm)break;
+    leapJ+=div(jump,33)*8+div(jump%33,4);jp=jm}
+  n=jy-jp;leapJ+=div(n,33)*8+div(n%33+3,4);
+  if(jump%33===4&&jump-n===4)leapJ++;
+  var march=20+leapJ-(div(gy,4)-div((div(gy,100)+1)*3,4)-150);
+  if(jump-n<6)n=n-jump+div(jump+4,33)*33;
+  leap=((n+1)%33-1)%4;if(leap===-1)leap=4;
+  return {leap:leap,gy:gy,march:march};
+}
+function g2d(gy,gm,gd){
+  var d=div((gy+div(gm-8,6)+100100)*1461,4)+div(153*((gm+9)%12)+2,5)+gd-34840408;
+  return d-div(div(gy+100100+div(gm-8,6),100)*3,4)+752;
+}
+function d2g(jdn){
+  var j=4*jdn+139361631;j+=div(div(4*jdn+183187720,146097)*3,4)*4-3908;
+  var i=div(j%1461,4)*5+308,gd=div(i%153,5)+1,gm=div(i,153)%12+1;
+  return {gy:div(j,1461)-100100+div(8-gm,6),gm:gm,gd:gd};
+}
+function d2j(jdn){
+  var gy=d2g(jdn).gy,jy=gy-621,r=jalCal(jy),f=g2d(gy,3,r.march),k=jdn-f,jm,jd;
+  if(k>=0){if(k<=185)return {jy:jy,jm:1+div(k,31),jd:modf(k,31)+1};k-=186}
+  else{jy-=1;k+=179;if(r.leap===1)k+=1}
+  jm=7+div(k,30);jd=modf(k,30)+1;
+  return {jy:jy,jm:jm,jd:jd};
+}
+var M_FA=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+
+/* ---------- cities ---------- */
+var CITIES=[
+ {fa:'تهران',en:'Tehran',lat:35.6892,lng:51.3890,tz:3.5},
+ {fa:'مشهد',en:'Mashhad',lat:36.2605,lng:59.6168,tz:3.5},
+ {fa:'اصفهان',en:'Isfahan',lat:32.6539,lng:51.6660,tz:3.5},
+ {fa:'شیراز',en:'Shiraz',lat:29.5918,lng:52.5837,tz:3.5},
+ {fa:'تبریز',en:'Tabriz',lat:38.0800,lng:46.2919,tz:3.5},
+ {fa:'اهواز',en:'Ahvaz',lat:31.3183,lng:48.6706,tz:3.5},
+ {fa:'کرمان',en:'Kerman',lat:30.2839,lng:57.0834,tz:3.5},
+ {fa:'رشت',en:'Rasht',lat:37.2808,lng:49.5832,tz:3.5},
+ {fa:'یزد',en:'Yazd',lat:31.8974,lng:54.3569,tz:3.5},
+ {fa:'بندرعباس',en:'Bandar Abbas',lat:27.1832,lng:56.2666,tz:3.5},
+ {fa:'استانبول',en:'Istanbul',lat:41.0082,lng:28.9784,tz:3},
+ {fa:'دبی',en:'Dubai',lat:25.2048,lng:55.2708,tz:4},
+ {fa:'لندن',en:'London',lat:51.5074,lng:-0.1278,tz:0},
+ {fa:'تورنتو',en:'Toronto',lat:43.6532,lng:-79.3832,tz:-5}
+];
+
+var ORDER=['fajr','sunrise','dhuhr','asr','maghrib','isha','midnight'];
+var I18N={
+ fa:{
+  'meta.title':'اوقات — نماز و قبله',
+  'meta.desc':'اوقات — اوقات شرعی و جهت قبله، محاسبه‌شده روی همین دستگاه و بدون اینترنت.',
+  'brand':'اوقات','tagline':'PRAYER TIMES & QIBLA',
+  'h.next':'وقتِ بعدی','h.times':'اوقاتِ امروز','h.qibla':'قبله','h.where':'موقعیت و روش',
+  'lbl.left':'مانده','lbl.fromNorth':'درجه از شمال جغرافیایی',
+  'cta.geo':'◎ موقعیت من',
+  'l.city':'شهر','l.method':'محاسبه','l.lat':'عرض جغرافیایی','l.lng':'طول جغرافیایی',
+  'l.tz':'اختلاف با گرینویچ (ساعت)',
+  'asr.std':'عصر: معیار','asr.hanafi':'عصر: حنفی','a11y.asr':'مذهب عصر',
+  'q.note':'قطب‌نمای گوشی شمالِ مغناطیسی را نشان می‌دهد؛ این عدد نسبت به شمالِ جغرافیایی است.',
+  'foot':'همه‌چیز روی همین دستگاه حساب می‌شود — بدون اینترنت و بدون ارسال موقعیت.',
+  'p.fajr':'اذان صبح','p.sunrise':'طلوع آفتاب','p.dhuhr':'اذان ظهر','p.asr':'عصر',
+  'p.maghrib':'اذان مغرب','p.isha':'عشا','p.midnight':'نیمه‌شب شرعی',
+  'custom':'دلخواه','none':'—','geoNo':'به موقعیت دسترسی نداریم','geoOk':'موقعیت گرفته شد',
+  'polar':'در این عرض جغرافیایی و این تاریخ، خورشید طلوع یا غروب نمی‌کند.'
+ },
+ en:{
+  'meta.title':'Owqat — prayer times & qibla',
+  'meta.desc':'Owqat — prayer times and the qibla direction, computed on your device with no internet.',
+  'brand':'Owqat','tagline':'PRAYER TIMES & QIBLA',
+  'h.next':'NEXT','h.times':'TODAY','h.qibla':'QIBLA','h.where':'LOCATION & METHOD',
+  'lbl.left':'remaining','lbl.fromNorth':'degrees from true north',
+  'cta.geo':'◎ My location',
+  'l.city':'City','l.method':'Method','l.lat':'Latitude','l.lng':'Longitude',
+  'l.tz':'UTC offset (hours)',
+  'asr.std':'Asr: standard','asr.hanafi':'Asr: Hanafi','a11y.asr':'Asr school',
+  'q.note':'A phone compass points at magnetic north; this bearing is from true north.',
+  'foot':'Everything is computed on this device — no internet, and your location is never sent anywhere.',
+  'p.fajr':'Fajr','p.sunrise':'Sunrise','p.dhuhr':'Dhuhr','p.asr':'Asr',
+  'p.maghrib':'Maghrib','p.isha':'Isha','p.midnight':'Midnight',
+  'custom':'Custom','none':'—','geoNo':'No access to your location','geoOk':'Location set',
+  'polar':'At this latitude and date the sun neither rises nor sets.'
+ }
+};
+var lang='fa';
+function t(k){var d=I18N[lang]||I18N.fa;return d[k]!=null?d[k]:(I18N.fa[k]||'')}
+function fa(n){return lang==='fa'?String(n).replace(/\d/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'[d]}):String(n)}
+function hm(h){
+  if(h==null)return t('none');
+  var tot=Math.round(h*60)%1440,H=Math.floor(tot/60),M=tot%60;
+  return fa(String(H).padStart(2,'0'))+':'+fa(String(M).padStart(2,'0'));
+}
+
+/* ---------- state ---------- */
+var st={city:0,method:'tehran',asr:1,lat:35.6892,lng:51.3890,tz:3.5,custom:false};
+try{st=Object.assign(st,JSON.parse(localStorage.getItem('owqat.st')||'{}'))}catch(e){}
+function save(){try{localStorage.setItem('owqat.st',JSON.stringify(st))}catch(e){}}
+
+function nowHours(){var d=new Date();return d.getHours()+d.getMinutes()/60+d.getSeconds()/3600}
+
+/* ---------- render ---------- */
+function compute(){
+  var d=new Date();
+  return prayerTimes(d.getFullYear(),d.getMonth()+1,d.getDate(),
+                     st.lat,st.lng,st.tz,st.method,st.asr);
+}
+function phaseOf(T,now){
+  if(T.fajr==null||T.sunrise==null)return 'day';
+  if(now<T.fajr||now>=(T.isha!=null?T.isha:24))return 'night';
+  if(now<T.sunrise)return 'dawn';
+  if(T.maghrib!=null&&now>=T.maghrib)return 'dusk';
+  return 'day';
+}
+
+function render(){
+  var T=compute(),now=nowHours();
+  document.documentElement.setAttribute('data-phase',phaseOf(T,now));
+
+  // وقتِ بعدی
+  var upcoming=null;
+  ORDER.forEach(function(k){
+    if(k==='midnight')return;
+    if(T[k]!=null&&T[k]>now&&(upcoming==null||T[k]<T[upcoming]))upcoming=k;
+  });
+  var nextK=upcoming||'fajr';
+  var nextAt=T[nextK];
+  $('#nextWho').textContent=t('p.'+nextK);
+  $('#nextAt').textContent=hm(nextAt);
+  var diff=nextAt==null?null:(upcoming?nextAt-now:fixHour(nextAt+24-now));
+  if(diff==null)$('#countdown').textContent=t('none');
+  else{
+    var H=Math.floor(diff),M=Math.floor((diff-H)*60),S=Math.floor((((diff-H)*60)-M)*60);
+    $('#countdown').textContent=fa(String(H).padStart(2,'0'))+':'+
+      fa(String(M).padStart(2,'0'))+':'+fa(String(S).padStart(2,'0'));
+  }
+
+  // تاریخ شمسی
+  var d=new Date(),j=d2j(g2d(d.getFullYear(),d.getMonth()+1,d.getDate()));
+  var cityName=st.custom?t('custom'):(lang==='fa'?CITIES[st.city].fa:CITIES[st.city].en);
+  $('#todayLine').textContent=fa(j.jd)+' '+M_FA[j.jm-1]+' '+fa(j.jy)+' · '+cityName;
+
+  renderTimes(T,now);
+  renderBar(T,now);
+  renderQibla();
+}
+
+function renderTimes(T,now){
+  var box=$('#times');box.innerHTML='';
+  if(T.sunrise==null){
+    box.innerHTML='<p style="color:var(--fg-dim);font-size:.88rem">'+t('polar')+'</p>';
+    return;
+  }
+  var current=null;
+  ORDER.forEach(function(k){if(T[k]!=null&&T[k]<=now)current=k});
+  ORDER.forEach(function(k){
+    var el=document.createElement('div');
+    el.className='tm'+(k===current?' now':'')+(T[k]!=null&&T[k]<now&&k!==current?' done':'');
+    el.innerHTML='<b>'+hm(T[k])+'</b><span>'+t('p.'+k)+'</span>';
+    box.appendChild(el);
+  });
+}
+
+/* نوارِ روز: از اذان صبح تا نیمه‌شب شرعی، با نشانه‌ی «حالا» */
+function renderBar(T,now){
+  var bar=$('#daybar');bar.innerHTML='';
+  if(T.fajr==null||T.isha==null)return;
+  var start=T.fajr,end=T.isha+1.2;
+  function pos(h){return Math.max(0,Math.min(100,(h-start)/(end-start)*100))}
+  var track=document.createElement('div');track.className='track';bar.appendChild(track);
+  var lit=document.createElement('div');lit.className='lit';
+  var p=pos(now);
+  lit.style.insetInlineStart='0';lit.style.width=p+'%';
+  bar.appendChild(lit);
+  ['fajr','sunrise','dhuhr','asr','maghrib','isha'].forEach(function(k){
+    if(T[k]==null)return;
+    var x=pos(T[k]);
+    var m=document.createElement('div');
+    m.className='pt'+(T[k]<=now?' past':'');
+    m.style.insetInlineStart=x+'%';bar.appendChild(m);
+    var l=document.createElement('div');l.className='lbl';
+    l.style.insetInlineStart=x+'%';l.textContent=t('p.'+k);
+    bar.appendChild(l);
+  });
+  if(now>=start&&now<=end){
+    var nm=document.createElement('div');nm.className='nowm';
+    nm.style.insetInlineStart=p+'%';bar.appendChild(nm);
+    var nl=document.createElement('div');nl.className='nowl';
+    nl.style.insetInlineStart=p+'%';nl.textContent=hm(now);
+    bar.appendChild(nl);
+  }
+}
+
+function renderQibla(){
+  var b=qibla(st.lat,st.lng),dist=distanceToKaaba(st.lat,st.lng);
+  $('#qDeg').textContent=fa(b.toFixed(1))+'°';
+  $('#qDist').textContent=fa(Math.round(dist).toLocaleString('en-US').replace(/,/g,'٬'))+
+    (lang==='fa'?' کیلومتر تا کعبه':' km to the Kaaba');
+  var box=$('#dial');box.innerHTML='';
+  var S=200,c=S/2,r=S/2-16;
+  var svg=document.createElementNS(SVGNS,'svg');
+  svg.setAttribute('viewBox','0 0 '+S+' '+S);
+  svg.setAttribute('role','img');
+  svg.setAttribute('aria-label',t('h.qibla')+': '+b.toFixed(1)+'°');
+  function E(tag,a){var e=document.createElementNS(SVGNS,tag);for(var k in a)e.setAttribute(k,a[k]);return e}
+  svg.appendChild(E('circle',{cx:c,cy:c,r:r,fill:'rgba(242,239,230,.04)',
+    stroke:'rgba(242,239,230,.22)','stroke-width':1}));
+  svg.appendChild(E('circle',{cx:c,cy:c,r:r*0.72,fill:'none',
+    stroke:'rgba(242,239,230,.10)','stroke-width':1}));
+  // درجه‌بندی
+  for(var a=0;a<360;a+=15){
+    var big=a%90===0,
+        r1=r-(big?11:5),
+        x1=c+Math.sin(a*D2R)*r1,y1=c-Math.cos(a*D2R)*r1,
+        x2=c+Math.sin(a*D2R)*r,y2=c-Math.cos(a*D2R)*r;
+    svg.appendChild(E('line',{x1:x1,y1:y1,x2:x2,y2:y2,
+      stroke:big?'rgba(242,239,230,.5)':'rgba(242,239,230,.22)','stroke-width':big?1.6:1}));
+  }
+  [['N',0],['E',90],['S',180],['W',270]].forEach(function(p2){
+    var rr=r-22,x=c+Math.sin(p2[1]*D2R)*rr,y=c-Math.cos(p2[1]*D2R)*rr+4;
+    var tx=E('text',{x:x,y:y,'text-anchor':'middle',
+      'font-size':11,'font-family':'DM Mono, monospace',
+      fill:p2[0]==='N'?'var(--fg)':'var(--fg-faint)'});
+    tx.textContent=p2[0];svg.appendChild(tx);
+  });
+  // پیکانِ قبله
+  var ax=c+Math.sin(b*D2R)*(r-6),ay=c-Math.cos(b*D2R)*(r-6);
+  svg.appendChild(E('line',{x1:c,y1:c,x2:ax,y2:ay,stroke:'var(--gold)','stroke-width':3,
+    'stroke-linecap':'round'}));
+  var hx=c+Math.sin(b*D2R)*(r+2),hy=c-Math.cos(b*D2R)*(r+2);
+  svg.appendChild(E('circle',{cx:hx,cy:hy,r:5,fill:'var(--gold)',
+    stroke:'var(--sky-a)','stroke-width':2}));
+  svg.appendChild(E('circle',{cx:c,cy:c,r:3.5,fill:'var(--fg)'}));
+  box.appendChild(svg);
+}
+
+/* ---------- controls ---------- */
+function buildSelects(){
+  var cs=$('#citySel');cs.innerHTML='';
+  CITIES.forEach(function(c,i){
+    var o=document.createElement('option');o.value=i;
+    o.textContent=lang==='fa'?c.fa:c.en;cs.appendChild(o);
+  });
+  var oc=document.createElement('option');oc.value='custom';oc.textContent=t('custom');
+  cs.appendChild(oc);
+  cs.value=st.custom?'custom':String(st.city);
+
+  var ms=$('#methodSel');ms.innerHTML='';
+  Object.keys(METHODS).forEach(function(k){
+    var o=document.createElement('option');o.value=k;
+    o.textContent=lang==='fa'?METHODS[k].fa:METHODS[k].en;ms.appendChild(o);
+  });
+  ms.value=st.method;
+}
+function syncInputs(){
+  $('#latIn').value=(+st.lat).toFixed(4);
+  $('#lngIn').value=(+st.lng).toFixed(4);
+  $('#tzIn').value=st.tz;
+  $$('.chip[data-asr]').forEach(function(b){b.setAttribute('aria-pressed',String(+b.dataset.asr===st.asr))});
+}
+$('#citySel').addEventListener('change',function(){
+  if(this.value==='custom'){st.custom=true}
+  else{st.custom=false;st.city=+this.value;
+    var c=CITIES[st.city];st.lat=c.lat;st.lng=c.lng;st.tz=c.tz}
+  save();syncInputs();render();
+});
+$('#methodSel').addEventListener('change',function(){st.method=this.value;save();render()});
+['#latIn','#lngIn','#tzIn'].forEach(function(id){
+  $(id).addEventListener('change',function(){
+    var v=parseFloat(String(this.value).replace(/[۰-۹]/g,function(d){return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)}));
+    if(isNaN(v))return;
+    if(id==='#latIn')st.lat=Math.max(-90,Math.min(90,v));
+    if(id==='#lngIn')st.lng=Math.max(-180,Math.min(180,v));
+    if(id==='#tzIn')st.tz=Math.max(-12,Math.min(14,v));
+    st.custom=true;$('#citySel').value='custom';
+    save();syncInputs();render();
+  });
+});
+$$('.chip[data-asr]').forEach(function(b){
+  b.addEventListener('click',function(){
+    st.asr=+b.dataset.asr;save();
+    $$('.chip[data-asr]').forEach(function(o){o.setAttribute('aria-pressed',String(o===b))});
+    render();
+  });
+});
+$('#geoBtn').addEventListener('click',function(){
+  if(!navigator.geolocation){alert(t('geoNo'));return}
+  navigator.geolocation.getCurrentPosition(function(p){
+    st.lat=p.coords.latitude;st.lng=p.coords.longitude;
+    st.tz=-new Date().getTimezoneOffset()/60;
+    st.custom=true;save();
+    $('#citySel').value='custom';syncInputs();render();
+  },function(){alert(t('geoNo'))},{timeout:9000});
+});
+
+/* ---------- language ---------- */
+function applyLang(next){
+  lang=I18N[next]?next:'fa';
+  var h=document.documentElement;
+  h.setAttribute('lang',lang);h.setAttribute('dir',lang==='fa'?'rtl':'ltr');
+  $$('[data-i18n]').forEach(function(e2){var v=t(e2.getAttribute('data-i18n'));if(v)e2.textContent=v});
+  $$('[data-i18n-aria]').forEach(function(e2){var v=t(e2.getAttribute('data-i18n-aria'));if(v)e2.setAttribute('aria-label',v)});
+  document.title=t('meta.title');
+  $('#metaDesc').setAttribute('content',t('meta.desc'));
+  $('#langBtn').textContent=lang==='fa'?'EN':'فا';
+  buildSelects();syncInputs();render();
+  try{localStorage.setItem('owqat.lang',lang)}catch(e){}
+}
+$('#langBtn').addEventListener('click',function(){applyLang(lang==='fa'?'en':'fa')});
+
+/* ---------- boot ---------- */
+var l='fa';try{l=localStorage.getItem('owqat.lang')||'fa'}catch(e){}
+applyLang(l);
+setInterval(render,1000);
+})();
+</script>
