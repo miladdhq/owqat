@@ -70,3 +70,10 @@ structure of the day, so this is information rather than decoration.
 ## Stack
 
 `HTML` · `CSS` · `Vanilla JavaScript` · SVG
+
+## Running locally
+
+Because Owqat is a single self-contained HTML file, you can run it without a
+build step or package installation. Open the HTML file directly in a browser,
+or serve the folder with any simple static HTTP server when testing browser
+features such as geolocation.
